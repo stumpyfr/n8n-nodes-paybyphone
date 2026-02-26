@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Parking sign logo">
+  <!-- Background -->
+  <rect x="32" y="32" width="448" height="448" rx="72" fill="#0A8F3D"/>
+  
+  <!-- White inner border -->
+  <rect x="60" y="60" width="392" height="392" rx="54"
+        fill="none" stroke="#FFFFFF" stroke-width="20"/>
+
+  <!-- Large centered P -->
+  <text x="260" y="295"
+        text-anchor="middle"
+        dominant-baseline="middle"
+        font-family="Arial Black, Arial, Helvetica, sans-serif"
+        font-size="400"
+        font-weight="900"
+        fill="#FFFFFF">P</text>
+</svg>
