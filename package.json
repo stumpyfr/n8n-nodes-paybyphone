@@ -1,6 +1,6 @@
 {
     "name": "n8n-nodes-paybyphone",
-    "version": "0.2.0",
+    "version": "0.2.1",
     "description": "Node for n8n to interact with the PayByPhone API",
     "license": "MIT",
     "homepage": "",
