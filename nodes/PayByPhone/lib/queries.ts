@@ -1,4 +1,20 @@
 export const QUERIES = {
+	STOP_PARKING_SESSION: `
+		mutation StopParkingSessionV1($input: StopParkingSessionV1Input!) {
+			stopParkingSessionV1(input: $input) {
+				stopParkingSessionResponse {
+					parkingSessionId
+					parkingSegmentId
+					stopDateTime
+					newExpiryTime
+					ratePolicyId
+					memberId
+					__typename
+				}
+				__typename
+			}
+		}
+	`,
 	GET_PARKING_SESSIONS: `
 		query GetParkingSessionsV1($input: GetParkingSessionsInput!) {
 			getParkingSessionsV1(input: $input) {

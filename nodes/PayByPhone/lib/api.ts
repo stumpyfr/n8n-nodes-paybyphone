@@ -53,6 +53,18 @@ export class PayByPhoneAPI {
 		throw error;
 	}
 
+	private assertGraphQLData(response: any, field: string): any {
+		if (response?.errors?.length) {
+			throw new Error(`GraphQL Error: ${JSON.stringify(response.errors).slice(0, 1500)}`);
+		}
+		if (!response?.data?.[field]) {
+			throw new Error(
+				`GraphQL Error: no "${field}" in response: ${JSON.stringify(response).slice(0, 500)}`,
+			);
+		}
+		return response.data[field];
+	}
+
 	private uuidv4(): string {
 		return '10000000-1000-4000-8000-100000000000'.replace(/[018]/g, (c) =>
 			(+c ^ (Math.floor(Math.random() * 16) & (15 >> (+c / 4)))).toString(16),
@@ -153,7 +165,7 @@ export class PayByPhoneAPI {
 			},
 		});
 
-		return this.removeGraphQLMetadata(response.data.getParkingSessionsV1);
+		return this.removeGraphQLMetadata(this.assertGraphQLData(response, 'getParkingSessionsV1'));
 	}
 
 	async getRate(
@@ -177,7 +189,7 @@ export class PayByPhoneAPI {
 			},
 		});
 
-		return this.removeGraphQLMetadata(response.data.getRateOptionsV1);
+		return this.removeGraphQLMetadata(this.assertGraphQLData(response, 'getRateOptionsV1'));
 	}
 
 	async getQuote(
@@ -224,7 +236,55 @@ export class PayByPhoneAPI {
 			})
 			.catch(this.handleGraphQLError.bind(this));
 
-		return this.removeGraphQLMetadata(response.data.createQuotesV1.createQuotesResponse);
+		const createQuotes = this.assertGraphQLData(response, 'createQuotesV1');
+		return this.removeGraphQLMetadata(createQuotes.createQuotesResponse);
+	}
+
+	async stopParkingSession(
+		helpers: N8nHelpers,
+		accessToken: string,
+		parkingSessionId: string,
+	): Promise<any> {
+		// The API also requires the job line item backing the session's current
+		// segment; it is only reachable through the sessions query.
+		const sessions = await this.getParkingSessions(helpers, accessToken, 'CURRENT');
+		const session = (sessions ?? []).find(
+			(item: any) => item.parkingSessionId === parkingSessionId,
+		);
+		if (!session) {
+			throw new Error(`No active parking session found with id ${parkingSessionId}`);
+		}
+		const jobId = session.jobId;
+		const segments = session.segments ?? [];
+		const jobLineItemId = segments[segments.length - 1]?.jobLineItemId;
+		if (!jobLineItemId) {
+			throw new Error(
+				`Parking session ${parkingSessionId} has no segment carrying a jobLineItemId`,
+			);
+		}
+
+		const response = await helpers
+			.httpRequest({
+				method: 'POST',
+				url: this.GRAPHQL_URL,
+				headers: {
+					Authorization: `Bearer ${accessToken}`,
+					'x-pbp-clienttype': 'WebApp',
+					'Content-Type': 'application/json',
+					'x-pbp-workflowid': parkingSessionId,
+				},
+				body: {
+					operationName: null,
+					variables: {
+						input: { request: { parkingSessionId, jobId, jobLineItemId } },
+					},
+					query: QUERIES.STOP_PARKING_SESSION,
+				},
+			})
+			.catch(this.handleGraphQLError.bind(this));
+
+		const stopped = this.assertGraphQLData(response, 'stopParkingSessionV1');
+		return this.removeGraphQLMetadata(stopped.stopParkingSessionResponse);
 	}
 
 	async startParkingSession(
@@ -251,7 +311,8 @@ export class PayByPhoneAPI {
 			})
 			.catch(this.handleGraphQLError.bind(this));
 
-		const session = sessionResponse.data.startParkingSessionV1.parkingSessionResponse;
+		const session = this.assertGraphQLData(sessionResponse, 'startParkingSessionV1')
+			.parkingSessionResponse;
 
 		// Step 2: Create a payment capture job linked to the session
 		const jobResponse = await helpers
@@ -317,7 +378,9 @@ export class PayByPhoneAPI {
 			})
 			.catch(this.handleGraphQLError.bind(this));
 
-		const job = this.removeGraphQLMetadata(jobResponse.data.createJobV1.createJobResponse);
+		const job = this.removeGraphQLMetadata(
+			this.assertGraphQLData(jobResponse, 'createJobV1').createJobResponse,
+		);
 
 		// Step 3: Wait for job processing, then retrieve the job status
 		await sleep(5000); // PayByPhone requires time to process the payment job before it can be queried
@@ -339,6 +402,6 @@ export class PayByPhoneAPI {
 			})
 			.catch(this.handleGraphQLError.bind(this));
 
-		return this.removeGraphQLMetadata(statusResponse.data.getJobV1);
+		return this.removeGraphQLMetadata(this.assertGraphQLData(statusResponse, 'getJobV1'));
 	}
 }

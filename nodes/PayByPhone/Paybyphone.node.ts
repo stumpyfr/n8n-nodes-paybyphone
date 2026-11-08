@@ -148,6 +148,19 @@ export class Paybyphone implements INodeType {
 				}
 			}
 
+			if (operation === 'stop') {
+				for (let itemIndex = 0; itemIndex < items.length; itemIndex++) {
+					await withErrorHandling(itemIndex, async () => {
+						const response = await api.stopParkingSession(
+							this.helpers,
+							accessToken,
+							this.getNodeParameter('parkingSessionId', itemIndex) as string,
+						);
+						returnData.push({ json: { ...response } });
+					});
+				}
+			}
+
 			if (operation === 'start') {
 				for (let itemIndex = 0; itemIndex < items.length; itemIndex++) {
 					await withErrorHandling(itemIndex, async () => {
